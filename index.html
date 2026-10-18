@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="IronPulse" />
+  <meta name="theme-color" content="#090a0f" />
+  <title>IronPulse • Workout Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card-surface: rgba(22, 26, 38, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary-neon: #00f0ff;
+      --accent-volt: #ccff00;
+      --accent-pink: #ff007a;
+      --success-neon: #00ff88;
+      --warning-amber: #ffaa00;
+      --yt-red: #ff0033;
+      --text-main: #f0f3f8;
+      --text-sub: #7d8597;
+      --danger: #ff3366;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #171b2e 0%, var(--bg) 65%);
+      color: var(--text-main);
+      padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 90px) 16px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #fx-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    header {
+      padding: 20px 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.8px;
+      background: linear-gradient(135deg, #fff 40%, var(--primary-neon) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .streak-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(204, 255, 0, 0.12);
+      border: 1px solid rgba(204, 255, 0, 0.3);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-volt);
+      box-shadow: 0 0 15px rgba(204, 255, 0, 0.15);
+    }
+
+    /* Gamified Streak Ribbon */
+    .streak-ribbon-card {
+      background: var(--card-surface);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .streak-ribbon-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .streak-stats-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .streak-flame-val {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent-volt);
+      letter-spacing: -0.5px;
+    }
+
+    .streak-subtext {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* 7-Day Bubbles Horizon */
+    .days-horizon {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .day-bubble {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 8px 2px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .day-bubble:active {
+      transform: scale(0.92);
+    }
+
+    .day-bubble.selected {
+      border-color: var(--primary-neon);
+      background: rgba(0, 240, 255, 0.12);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+    }
+
+    .day-name {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .day-number {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .day-status-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    /* Day status badge states */
+    .status-completed {
+      background: rgba(0, 255, 136, 0.2);
+      color: var(--success-neon);
+      border: 1px solid var(--success-neon);
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+
+    .status-missed {
+      background: rgba(255, 51, 102, 0.2);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .status-partial {
+      background: rgba(255, 170, 0, 0.2);
+      color: var(--warning-amber);
+      border: 1px solid var(--warning-amber);
+    }
+
+    .status-rest {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-sub);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .status-future {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.2);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    /* Daily Energy Progress Card */
+    .progress-card {
+      background: var(--card-surface);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary-neon), var(--success-neon));
+      border-radius: 10px;
+      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+    }
+
+    /* Date Capsule */
+    .date-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      background: var(--card-surface);
+      border: 1px solid var(--card-border);
+      padding: 12px 16px;
+      border-radius: 14px;
+      backdrop-filter: blur(14px);
+    }
+
+    .date-row span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .date-row input[type="date"] {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 15px;
+      font-weight: 700;
+      outline: none;
+      text-align: right;
+    }
+
+    .category-pills {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+    .category-pills::-webkit-scrollbar { display: none; }
+
+    .pill {
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pill.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--primary-neon);
+      color: var(--primary-neon);
+    }
+
+    .card {
+      background: var(--card-surface);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 18px;
+      backdrop-filter: blur(16px);
+    }
+
+    .field-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      background: rgba(14, 17, 26, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus {
+      border-color: var(--primary-neon);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: 10px;
+    }
+
+    .glow-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary-neon) 0%, #0077fe 100%);
+      color: #000;
+      border: none;
+      padding: 15px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      margin-top: 6px;
+      box-shadow: 0 4px 20px rgba(0, 240, 255, 0.35);
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+
+    .glow-btn:active {
+      transform: scale(0.97);
+      filter: brightness(1.2);
+    }
+
+    /* Exercise List Cards */
+    .exercise-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-surface);
+      border: 1px solid var(--card-border);
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+      backdrop-filter: blur(14px);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .exercise-item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--primary-neon);
+      opacity: 0.7;
+    }
+
+    .exercise-item.completed {
+      background: rgba(18, 38, 28, 0.5);
+      border-color: rgba(0, 255, 136, 0.3);
+      transform: scale(0.99);
+    }
+
+    .exercise-item.completed::before {
+      background: var(--success-neon);
+      box-shadow: 0 0 10px var(--success-neon);
+    }
+
+    .exercise-info h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      transition: color 0.2s ease;
+    }
+
+    .exercise-item.completed h4 {
+      text-decoration: line-through;
+      color: #728c7f;
+    }
+
+    .exercise-specs {
+      font-size: 13px;
+      color: var(--text-sub);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .tag-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--primary-neon);
+    }
+
+    .yt-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 0, 51, 0.12);
+      border: 1px solid rgba(255, 0, 51, 0.35);
+      color: #ff5566;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .yt-link-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .check-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .completed .check-btn {
+      background: var(--success-neon);
+      border-color: var(--success-neon);
+      box-shadow: 0 0 16px rgba(0, 255, 136, 0.5);
+      transform: scale(1.08) rotate(4deg);
+    }
+
+    .check-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: #000;
+      display: none;
+    }
+
+    .completed .check-btn svg {
+      display: block;
+    }
+
+    .del-btn {
+      background: transparent;
+      border: none;
+      color: var(--danger);
+      margin-left: 10px;
+      font-size: 17px;
+      cursor: pointer;
+      padding: 6px;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    .del-btn:active { opacity: 1; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-sub);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Floating Tab Bar */
+    .tab-bar {
+      position: fixed;
+      bottom: 14px;
+      left: 16px;
+      right: 16px;
+      background: rgba(18, 22, 33, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      padding: 8px 12px;
+      display: flex;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      background: transparent;
+      color: var(--text-sub);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      border-radius: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      color: #000;
+      background: var(--primary-neon);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    }
+
+    .tab-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- TAB 1: SCHEDULE BUILDER -->
+  <section id="section-schedule" style="display: none;">
+    <header>
+      <div class="brand-title">Plan Routine</div>
+      <div class="streak-badge">⚡ Builder</div>
+    </header>
+
+    <div class="date-row">
+      <span>Target Date</span>
+      <input type="date" id="schedule-date" />
+    </div>
+
+    <div class="category-pills" id="pills-container">
+      <div class="pill active" data-cat="Chest/Push">Chest / Push</div>
+      <div class="pill" data-cat="Back/Pull">Back / Pull</div>
+      <div class="pill" data-cat="Legs">Legs / Quads</div>
+      <div class="pill" data-cat="Shoulders">Shoulders</div>
+      <div class="pill" data-cat="Core/Carry">Core / Carry</div>
+      <div class="pill" data-cat="Cardio">Cardio / Run</div>
+    </div>
+
+    <form id="workout-form" class="card">
+      <div class="field-group">
+        <label>Exercise Name</label>
+        <input type="text" id="ex-name" placeholder="e.g. Incline DB Bench, Farmer Walk" required />
+      </div>
+
+      <input type="hidden" id="ex-category" value="Chest/Push" />
+
+      <div class="grid-3">
+        <div class="field-group">
+          <label>Sets</label>
+          <input type="number" id="ex-sets" value="3" min="1" max="20" required />
+        </div>
+        <div class="field-group">
+          <label>Reps / Time</label>
+          <input type="text" id="ex-reps" placeholder="10 / 45s" required />
+        </div>
+        <div class="field-group">
+          <label>Weight (kg)</label>
+          <input type="number" step="0.5" id="ex-weight" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>YouTube / Video Link (Optional)</label>
+        <input type="url" id="ex-video" placeholder="https://youtu.be/... or https://youtube.com/..." />
+      </div>
+
+      <button type="submit" class="glow-btn">
+        <span>+ Add Exercise to Protocol</span>
+      </button>
+    </form>
+  </section>
+
+  <!-- TAB 2: ACTIVE TRACKER -->
+  <section id="section-tracker">
+    <header>
+      <div class="brand-title">Today's Protocol</div>
+      <div class="streak-badge" id="streak-counter">🔥 0 Done</div>
+    </header>
+
+    <!-- NEW GAMIFIED 7-DAY STREAK & HORIZON CARD -->
+    <div class="streak-ribbon-card">
+      <div class="streak-ribbon-header">
+        <div class="streak-stats-row">
+          <span class="streak-flame-val" id="streak-days-count">0</span>
+          <span class="streak-subtext">Day Streak Record</span>
+        </div>
+        <span class="streak-subtext" id="streak-active-label">Consistency</span>
+      </div>
+      <div class="days-horizon" id="days-horizon-container">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </div>
+
+    <!-- Daily Progress Capsule -->
+    <div class="progress-card">
+      <div class="progress-header">
+        <span>Completion Energy</span>
+        <span id="progress-percent">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="date-row">
+      <span>Active Date</span>
+      <input type="date" id="tracker-date" />
+    </div>
+
+    <div id="exercise-list">
+      <!-- Populated dynamically via app.js -->
+    </div>
+  </section>
+
+  <!-- BOTTOM TAB NAVIGATION -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" id="btn-tab-tracker" type="button">
+      <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      <span>Perform & Tick</span>
+    </button>
+    <button class="tab-btn" id="btn-tab-schedule" type="button">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      <span>Insert Schedule</span>
+    </button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
